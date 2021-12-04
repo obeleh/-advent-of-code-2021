@@ -70,6 +70,8 @@ func bingo(b *board) bool {
 		for c := 0; c < b.dim; c++ {
 			if b.marks[r*b.dim+c] {
 				markCnt += 1
+			} else {
+				break
 			}
 		}
 		if markCnt == b.dim {
@@ -83,6 +85,8 @@ func bingo(b *board) bool {
 		for r := 0; r < b.dim; r++ {
 			if b.marks[r*b.dim+c] {
 				markCnt += 1
+			} else {
+				break
 			}
 		}
 		if markCnt == b.dim {
