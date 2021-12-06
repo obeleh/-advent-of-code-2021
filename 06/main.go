@@ -10,51 +10,69 @@ import (
 
 const NUMDAYS int = 256
 
-func loadInput() []int {
+type fishGeneration struct {
+	count int
+	age   int
+}
+
+func loadInput() []*fishGeneration {
 	bytes, err := os.ReadFile("input.txt")
 	if err != nil {
 		log.Fatalln(err)
 	}
 	strValues := strings.Split(string(bytes), ",")
 
-	values := make([]int, len(strValues))
-	for idx, strValue := range strValues {
-		values[idx], err = strconv.Atoi(strValue)
+	fish := []*fishGeneration{
+		&fishGeneration{count: 0, age: 0},
+		&fishGeneration{count: 0, age: 1},
+		&fishGeneration{count: 0, age: 2},
+		&fishGeneration{count: 0, age: 3},
+		&fishGeneration{count: 0, age: 4},
+		&fishGeneration{count: 0, age: 5},
+		&fishGeneration{count: 0, age: 6},
+		&fishGeneration{count: 0, age: 7},
+		&fishGeneration{count: 0, age: 8},
+	}
+	var value int
+	for _, strValue := range strValues {
+		value, err = strconv.Atoi(strValue)
 		if err != nil {
 			log.Fatalf("Failed loading input, %v", err)
 		}
+		fish[value].count += 1
 	}
-	return values
+	return fish
 }
 
 func main() {
-	fish := loadInput()
-	fishyFish := make([]*[]int, NUMDAYS+1)
-	fishyFish[0] = &fish
-	var dayArr []int
+	fishies := loadInput()
+
+	age6Idx := 6
 	for day := 0; day < NUMDAYS; day++ {
-		newFish := make([]int, 0)
-		for dayArrIdx := 0; dayArrIdx < day; dayArrIdx++ {
-			dayArr = *fishyFish[dayArrIdx]
-			for fishIdx := 0; fishIdx < len(dayArr); fishIdx++ {
-				dayArr[fishIdx] -= 1
-				if dayArr[fishIdx] < 0 {
-					dayArr[fishIdx] = 6
-					newFish = append(newFish, 8)
-				}
+		newFish := 0
+		for _, gen := range fishies {
+			gen.age -= 1
+			if gen.age < 0 {
+				gen.age = 6
+				newFish = gen.count
 			}
 		}
-		fishyFish[day+1] = &newFish
-		print(day)
-		print("\n")
+
+		age6Idx += 1
+		if age6Idx > 6 {
+			age6Idx = 0
+		}
+		fishies[age6Idx].count += fishies[7].count
+		fishies[7].count = fishies[8].count
+		fishies[7].age = 7
+		fishies[8].count = newFish
+		fishies[8].age = 8
 	}
 
-	cnt := 0
-	for _, curArr := range fishyFish {
-		cnt += len(*curArr)
+	total := 0
+	for _, gen := range fishies {
+		total += gen.count
 	}
-	print(fmt.Sprintf("%d fish", len(fish)))
+
+	print(fmt.Sprintf("%d fish", total))
 }
-
-// found 5124 intersections
-// found 19771 intersections
