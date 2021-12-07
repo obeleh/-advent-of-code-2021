@@ -104,4 +104,5 @@ func main() {
 	challenge2(values, avg, min, max)
 }
 
-// ! 360693
+//avg:320 fuel:343443 prevFuel:343441 smaller:false
+//avg:472 fuel:98926146 prevFuel:98925151 smaller:false
