@@ -34,77 +34,20 @@ func loadInput() [][]int {
 }
 
 type Coord struct {
-	x int
-	y int
+	x   int
+	y   int
+	val int
 }
-type lowCoord struct {
+type bassin struct {
 	Coord
-	val               int
 	surroundingValues []Coord
 }
 
 var OFFSETCOORDS = [...]Coord{
-	{x: -1, y: -1},
 	{x: 0, y: -1},
-	{x: +1, y: -1},
 	{x: +1, y: 0},
-	{x: +1, y: +1},
 	{x: 0, y: +1},
-	{x: -1, y: +1},
 	{x: -1, y: +0},
-}
-
-func valIsLower(val int, xC int, yC int, xLen int, yLen int, heightMap [][]int) bool {
-	if xC >= 0 && yC >= 0 && xC < xLen && yC < yLen {
-		return val < heightMap[yC][xC]
-	} else {
-		// return true when out of bounds
-		return true
-	}
-}
-
-func challenge1(heightMap [][]int, yLen int, xLen int) []lowCoord {
-	lowestIdxs := make([]lowCoord, 0)
-	for yIdx, yVals := range heightMap {
-		for xIdx, val := range yVals {
-			if val == 9 {
-				continue
-			}
-
-			// loop around, start top left go clockwise
-			// skip to next field if current value is not lower than any of the surrounding
-
-			if !valIsLower(val, xIdx, yIdx-1, xLen, yLen, heightMap) {
-				continue // top
-			}
-			if !valIsLower(val, xIdx+1, yIdx, xLen, yLen, heightMap) {
-				continue // right
-			}
-			if !valIsLower(val, xIdx, yIdx+1, xLen, yLen, heightMap) {
-				continue // bottom
-			}
-			if !valIsLower(val, xIdx-1, yIdx, xLen, yLen, heightMap) {
-				continue // left
-			}
-
-			// we checked all around, val is the lowest in the area
-			lowestIdxs = append(lowestIdxs, lowCoord{
-				Coord: Coord{
-					x: xIdx,
-					y: yIdx,
-				},
-				val: val,
-			})
-		}
-	}
-
-	outputSum := 0
-	for _, lC := range lowestIdxs {
-		outputSum += lC.val + 1
-	}
-
-	print(fmt.Sprintf("lcSum %d\n", outputSum))
-	return lowestIdxs
 }
 
 func getSurroundingCoords(x int, y int, heightMap [][]int, yLen int, xLen int) []Coord {
@@ -112,17 +55,17 @@ func getSurroundingCoords(x int, y int, heightMap [][]int, yLen int, xLen int) [
 	for _, coordOffset := range OFFSETCOORDS {
 		if x+coordOffset.x >= 0 && y+coordOffset.y >= 0 && x+coordOffset.x < xLen && y+coordOffset.y < yLen {
 			output = append(output, Coord{
-				x: x + coordOffset.x,
-				y: y + coordOffset.y,
+				x:   x + coordOffset.x,
+				y:   y + coordOffset.y,
+				val: heightMap[y+coordOffset.y][x+coordOffset.x],
 			})
 		}
 	}
 	return output
 }
 
-func challenge2(heightMap [][]int, yLen int, xLen int, lowcoords []lowCoord) {
-	lowestIdxs := make([]lowCoord, 0)
-	alreadyDiscoveredCoords := make([]Coord, 0)
+func challenge1(heightMap [][]int, yLen int, xLen int) []*bassin {
+	bassins := make([]*bassin, 0)
 	for yIdx, yVals := range heightMap {
 	VAL_LOOP:
 		for xIdx, val := range yVals {
@@ -130,80 +73,104 @@ func challenge2(heightMap [][]int, yLen int, xLen int, lowcoords []lowCoord) {
 				continue
 			}
 
+			bassinCoords := make([]Coord, 0)
 			surroundingCoords := getSurroundingCoords(xIdx, yIdx, heightMap, yLen, xLen)
 			for _, coord := range surroundingCoords {
-				if val >= heightMap[coord.y][coord.x] {
+				if val >= coord.val {
 					// skip to next field if current value is not lower than any of the surrounding
 					continue VAL_LOOP
 				}
-			}
-			centerVal := val
 
-			// we've found the lowest point, now we find all steps up
-
-			nextStep := make([]Coord, len(surroundingCoords))
-			copy(nextStep, surroundingCoords)
-			rejects := make([]Coord, 0)
-		WHILE_LOOP:
-			for { // while new steps up are being found
-				candidates := make([]Coord, 0)
-				copy(rejects, surroundingCoords)
-				for _, coord := range nextStep {
-					val = heightMap[coord.y][coord.x]
-					newSurroundingCoords := getSurroundingCoords(coord.x, coord.y, heightMap, yLen, xLen)
-					candidates = append(candidates, newSurroundingCoords...)
-					for _, newCoord := range newSurroundingCoords {
-						newCoordVal := heightMap[newCoord.y][newCoord.x]
-						if val >= newCoordVal || newCoordVal == 9 {
-							rejects = append(rejects, newCoord)
-						}
-					}
-				}
-				candidates = funk.Subtract(funk.Uniq(candidates), surroundingCoords).([]Coord)
-				rejects = funk.Uniq(rejects).([]Coord)
-				nextStep = funk.Subtract(candidates, rejects).([]Coord)
-				found := len(nextStep) > 0
-				if found {
-					surroundingCoords = append(surroundingCoords, nextStep...)
-				} else {
-					// break condition
-					uniqSurrounding := funk.Uniq(surroundingCoords).([]Coord)
-					lc := lowCoord{
-						Coord: Coord{
-							x: xIdx,
-							y: yIdx,
-						},
-						val:               centerVal,
-						surroundingValues: uniqSurrounding,
-					}
-					duplicates := funk.Intersect(uniqSurrounding, alreadyDiscoveredCoords).([]Coord)
-					if len(duplicates) > 0 {
-						for idx, lowestIdx := range lowestIdxs {
-							intersection := funk.Intersect(lowestIdx.surroundingValues, uniqSurrounding).([]Coord)
-							if len(intersection) > 0 {
-								//xreplace old found lc only if the new one is bigger
-								if len(lowestIdx.surroundingValues) > len(uniqSurrounding) {
-									lowestIdxs[idx] = lc
-								}
-								break WHILE_LOOP
-							}
-						}
-					}
-					alreadyDiscoveredCoords = append(alreadyDiscoveredCoords, uniqSurrounding...)
-					lowestIdxs = append(lowestIdxs, lc)
-					break
+				if coord.val < 9 {
+					bassinCoords = append(bassinCoords, coord)
 				}
 			}
+
+			// we checked all around, val is the lowest in the area
+			b := bassin{
+				Coord: Coord{
+					x:   xIdx,
+					y:   yIdx,
+					val: val,
+				},
+				surroundingValues: bassinCoords,
+			}
+			bassins = append(bassins, &b)
 		}
 	}
 
-	print(fmt.Sprintf("LowestIndexes %d", len(lowestIdxs)))
-	sort.Slice(lowestIdxs, func(i int, j int) bool {
-		return len(lowestIdxs[i].surroundingValues) > len(lowestIdxs[j].surroundingValues)
+	outputSum := 0
+	for _, lC := range bassins {
+		outputSum += lC.val + 1
+	}
+
+	print(fmt.Sprintf("lcSum %d\n", outputSum))
+	return bassins
+}
+
+func loadBassinSurroundings(heightMap [][]int, yLen int, xLen int, bassin *bassin) {
+	nextBatch := make([]Coord, len(bassin.surroundingValues))
+	copy(nextBatch, bassin.surroundingValues)
+	for {
+		candidates := make([]Coord, 0)
+		for _, coord := range nextBatch {
+			surroundingCoords := getSurroundingCoords(coord.x, coord.y, heightMap, yLen, xLen)
+			for _, surCoord := range surroundingCoords {
+				if surCoord.val > coord.val && surCoord.val < 9 {
+					if funk.Contains(bassin.surroundingValues, surCoord) {
+						continue
+					}
+					candidates = append(candidates, surCoord)
+				}
+			}
+		}
+		if len(candidates) == 0 {
+			break
+		}
+		bassin.surroundingValues = append(bassin.surroundingValues, candidates...)
+
+		nextBatch = candidates
+	}
+	bassin.surroundingValues = funk.Uniq(bassin.surroundingValues).([]Coord)
+}
+
+func printBassin(curBassin bassin, xLen int, yLen int) {
+	heightMap := make([][]int, yLen)
+	for y := 0; y < yLen; y++ {
+		heightMap[y] = make([]int, xLen)
+	}
+	heightMap[curBassin.y][curBassin.x] = curBassin.val
+	for _, coord := range curBassin.surroundingValues {
+		heightMap[coord.y][coord.x] = coord.val
+	}
+	print("\n")
+	for y := 0; y < yLen; y++ {
+		for x := 0; x < xLen; x++ {
+			if heightMap[y][x] == 0 {
+				print(" ")
+			} else {
+				print(heightMap[y][x])
+			}
+		}
+		print("\n")
+	}
+	print("\n")
+}
+
+func challenge2(heightMap [][]int, yLen int, xLen int, bassins []*bassin) {
+	for _, bassin := range bassins {
+		loadBassinSurroundings(heightMap, yLen, xLen, bassin)
+	}
+
+	sort.Slice(bassins, func(i int, j int) bool {
+		return len(bassins[i].surroundingValues) > len(bassins[j].surroundingValues)
 	})
+
 	curMultiple := 1
 	for i := 0; i < 3; i++ {
-		curMultiple *= (len(lowestIdxs[i].surroundingValues) + 1)
+		curBassin := bassins[i]
+		curMultiple *= (len(curBassin.surroundingValues) + 1)
+		printBassin(*curBassin, xLen, yLen)
 	}
 	print(fmt.Sprintf("Multiple: %d\n", curMultiple))
 }
@@ -213,8 +180,6 @@ func main() {
 
 	yLen := len(heightMap)
 	xLen := len(heightMap[0])
-	lowCoords := challenge1(heightMap, yLen, xLen)
-	challenge2(heightMap, yLen, xLen, lowCoords)
+	bassins := challenge1(heightMap, yLen, xLen)
+	challenge2(heightMap, yLen, xLen, bassins)
 }
-
-// 85008 too low
