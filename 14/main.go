@@ -12,7 +12,7 @@ type Substitution struct {
 	insert string
 }
 
-func loadInput() ([]*string, []Substitution) {
+func loadInput() ([]string, []Substitution) {
 	bytes, err := os.ReadFile("input.txt")
 	if err != nil {
 		log.Fatalln(err)
@@ -29,64 +29,7 @@ func loadInput() ([]*string, []Substitution) {
 			insert: insert,
 		}
 	}
-
-	polyPointer := make([]*string, len(polymer))
-	for i := range polymer {
-		polyPointer[i] = &polymer[i]
-	}
-	return polyPointer, substitutions
-}
-
-func runStep(polymer []*string, substitutions []Substitution) []*string {
-	polymerStr := ""
-	for _, s := range polymer {
-		polymerStr += *s
-	}
-
-	for _, substitution := range substitutions {
-		startIdx := 0
-		for {
-			pos := strings.Index(polymerStr[startIdx:], substitution.from)
-
-			if pos == -1 {
-				break
-			}
-
-			replacement := string(substitution.from[0]) + substitution.insert
-			polymer[pos+startIdx] = &replacement
-			startIdx += pos + 1
-		}
-
-	}
-
-	newPolymer := []*string{}
-	for _, s := range polymer {
-		if len(*s) == 1 {
-			newPolymer = append(newPolymer, s)
-		} else if len(*s) == 2 {
-			s0 := string((*s)[0])
-			s1 := string((*s)[1])
-			newPolymer = append(newPolymer, &s0, &s1)
-		} else {
-			log.Fatalln("Unexpected replacement lenght")
-		}
-	}
-
-	return newPolymer
-}
-
-func countChars(polymer []*string) map[string]int {
-	output := map[string]int{}
-	for _, s := range polymer {
-		key := *s
-		_, found := output[key]
-		if found {
-			output[key] += 1
-		} else {
-			output[key] = 1
-		}
-	}
-	return output
+	return polymer, substitutions
 }
 
 func printResult(counts map[string]int) {
@@ -105,55 +48,77 @@ func printResult(counts map[string]int) {
 	print(fmt.Sprintf("Min: %d Max: %d Diff: %d\n", minVal, maxVal, maxVal-minVal))
 }
 
-func challenge1(polymer []*string, substitutions []Substitution) {
-
-	for step := 0; step < 10; step++ {
-		print(fmt.Sprintf("Step %d\n", step))
-		polymer = runStep(polymer, substitutions)
+func mergeCounts(counts1 map[string]int, counts2 map[string]int) map[string]int {
+	output := map[string]int{}
+	for key, value := range counts2 {
+		c1Value, found := counts1[key]
+		if found {
+			output[key] = c1Value + value
+		} else {
+			output[key] = value
+		}
 	}
 
-	counts := countChars(polymer)
-	printResult(counts)
-}
-
-func getCounts(edge string, tranformations map[string][]string, substitutionMap map[string]string, counts *map[string]int, depth int) {
-	(*counts)[substitutionMap[edge]] += 1
-	if depth > 0 {
-		getCounts(tranformations[edge][0], tranformations, substitutionMap, counts, depth-1)
-		getCounts(tranformations[edge][1], tranformations, substitutionMap, counts, depth-1)
+	for key, value := range counts1 {
+		_, found := counts2[key]
+		if !found {
+			output[key] = value
+		}
 	}
+	return output
 }
 
-func challenge2(polymer []*string, substitutions []Substitution) {
+func getCounts(edge string, tranformations map[string][]string, substitutionMap map[string]string, cache map[string]map[string]int, depth int) map[string]int {
+	t := substitutionMap[edge]
+	cacheKey := fmt.Sprintf("%s%s%d", edge, t, depth)
+	value, found := cache[cacheKey]
+	if found {
+		return value
+	}
+
+	if depth == 0 {
+		counts := map[string]int{
+			t: 1,
+		}
+		return counts
+	}
+
+	counts1 := getCounts(tranformations[edge][0], tranformations, substitutionMap, cache, depth-1)
+	counts2 := getCounts(tranformations[edge][1], tranformations, substitutionMap, cache, depth-1)
+	counts := mergeCounts(counts1, counts2)
+	vl, found := counts[t]
+	if found {
+		counts[t] = vl + 1
+	} else {
+		counts[t] = 1
+	}
+	cache[cacheKey] = counts
+	return counts
+}
+
+func challenge(polymer []string, substitutions []Substitution, iterations int) {
 	tranformations := map[string][]string{}
-	counts := map[string]int{}
 	substitutionMap := map[string]string{}
-	for _, s := range polymer {
-		// make sure all _initial_ letters are in the counts map
-		counts[*s] = 0
-	}
-
 	for _, substitution := range substitutions {
 		possibilities := []string{
 			string(substitution.from[0]) + substitution.insert,
 			substitution.insert + string(substitution.from[1]),
 		}
-		// make sure all letters are in the counts map
-		counts[string(substitution.from[0])] = 0
-		counts[string(substitution.from[1])] = 0
-		counts[substitution.insert] = 0
 
 		tranformations[substitution.from] = possibilities
 		substitutionMap[substitution.from] = substitution.insert
 	}
 
+	counts := map[string]int{}
+	cache := map[string]map[string]int{}
 	for i := 0; i < len(polymer)-1; i++ {
-		edge := *polymer[i] + *polymer[i+1]
-		getCounts(edge, tranformations, substitutionMap, &counts, 22-1)
+		edge := polymer[i] + polymer[i+1]
+		countsI := getCounts(edge, tranformations, substitutionMap, cache, iterations-1)
+		counts = mergeCounts(counts, countsI)
 	}
 
 	for _, s := range polymer {
-		counts[*s] += 1
+		counts[s] += 1
 	}
 
 	printResult(counts)
@@ -161,6 +126,6 @@ func challenge2(polymer []*string, substitutions []Substitution) {
 
 func main() {
 	polymer, substitutions := loadInput()
-	// challenge1(polymer, substitutions)
-	challenge2(polymer, substitutions)
+	challenge(polymer, substitutions, 10)
+	challenge(polymer, substitutions, 40)
 }
