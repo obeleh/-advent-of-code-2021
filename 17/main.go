@@ -38,26 +38,14 @@ const STATUS_PRE_T = 0
 const STATUS_IN_T = 1
 const STATUS_POST_T = 2
 
-func (t targetArea) getStatus(x int, y int) (int, int) {
-	var xStatus int
-	var yStatus int
-	if x > t.toX {
-		xStatus = STATUS_POST_T
-	} else if x < t.fromX {
-		xStatus = STATUS_PRE_T
+func (t targetArea) getStatus(x int, y int) int {
+	if x > t.toX || y < t.toY {
+		return STATUS_POST_T
+	} else if x < t.fromX || y > t.fromY {
+		return STATUS_PRE_T
 	} else {
-		xStatus = STATUS_IN_T
+		return STATUS_IN_T
 	}
-
-	if y > t.fromY {
-		yStatus = STATUS_PRE_T
-	} else if y < t.toY {
-		yStatus = STATUS_POST_T
-	} else {
-		yStatus = STATUS_IN_T
-	}
-
-	return xStatus, yStatus
 }
 
 func calculateHit(xVel int, yVel int, t targetArea) (bool, *coord, int) {
@@ -70,14 +58,14 @@ func calculateHit(xVel int, yVel int, t targetArea) (bool, *coord, int) {
 		if y > maxY {
 			maxY = y
 		}
-		xStatus, yStatus := t.getStatus(x, y)
-		if xStatus == STATUS_POST_T || yStatus == STATUS_POST_T {
+		status := t.getStatus(x, y)
+		if status == STATUS_POST_T {
 			return false, &coord{
 				x: x,
 				y: y,
 			}, maxY
 		}
-		if xStatus == STATUS_IN_T && yStatus == STATUS_IN_T {
+		if status == STATUS_IN_T {
 			return true, &coord{
 				x: x,
 				y: y,
@@ -108,7 +96,6 @@ func main() {
 	loopCnt := 600
 	for xV := -loopCnt; xV < loopCnt; xV++ {
 		for yV := -loopCnt; yV < loopCnt; yV++ {
-			//print(fmt.Sprintf("x:%d y:%d\n", xV, yV))
 			isHit, c, curMaxY := calculateHit(xV, yV, t)
 			if isHit {
 				hits = append(hits, hit{
